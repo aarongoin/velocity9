@@ -1,0 +1,66 @@
+{
+  "name": "@velocity9/server",
+  "engines": {
+    "node": "^13.0.0"
+  },
+  "version": "0.1.0",
+  "description": "A super fast web app server built on Node.js and uWebSockets.js.",
+  "author": "Aaron Goin",
+  "license": "BSD-3-Clause",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bugs": {
+    "url": "https://github.com/aarongoin/velocity9/issues"
+  },
+  "homepage": "https://github.com/aarongoin/velocity9",
+  "scripts": {
+    "build": "rollup -c && cp ./src/index.d.ts ./dist/index.d.ts",
+    "dev": "rollup -c -w",
+    "lint": "eslint --fix ./src/index.ts",
+    "test": "jest",
+    "prettier": "prettier --write",
+    "publish": "npm publish --access public"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "uws": "git://github.com/uNetworking/uWebSockets.js.git#v17.6.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^4.1.1",
+    "@types/jest": "^23.3.10",
+    "@types/node": "^14.0.11",
+    "@typescript-eslint/eslint-plugin": "^2.33.0",
+    "@typescript-eslint/parser": "^2.33.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint": "^7.0.0",
+    "jest": "^23.6.0",
+    "lint-staged": "^8.1.0",
+    "prettier": "^1.19.1",
+    "rollup-plugin-cleanup": "^3.1.1",
+    "rollup-plugin-dts": "^1.4.3",
+    "rollup": "^2.10.0",
+    "ts-jest": "^23.10.5",
+    "ts-node": "^7.0.1",
+    "tslib": "^1.9.3",
+    "typescript": "^3.9.2"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "verbose": true,
+    "moduleFileExtensions": [
+      "js",
+      "ts"
+    ],
+    "moduleDirectories": [
+      "node_modules"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.[jt]s?(x)",
+      "**/?(*.)(spec|test).[jt]s?(x)"
+    ]
+  }
+}
