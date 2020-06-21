@@ -1,36 +1,28 @@
-import { status, AppRequest, MiddlewareCreator } from "@velocity9/server";
+import { statusCode, HttpRequest, MiddlewareCreator } from "@velocity9/server";
+import { SessionContext } from "@velocity9/auth";
+import { ThrottleOptions } from "./index.d";
 
-function throttleKey(req: AppRequest, key = "global"): string {
+function throttleKey(req: HttpRequest, key = "global"): string {
   return `requests/${req.remoteAddress}/${key}/${Math.trunc(
     Date.now() / 1000
   )}`;
 }
 
-export interface ThrottleOptions {
-  key?: string; // the unique key for this throttle (usefult when applying a throttle to a subset of your app routes)
-  rate: number; // max number of requests per second before throttling an ip address
-  group?: number; // the user groups this throttle applies to (else apply to all groups)
-}
-
-const defaultOptions: ThrottleOptions = {
-  rate: 1000
-};
-
 const Throttle: MiddlewareCreator<ThrottleOptions> = ({
   key,
-  rate,
   group,
-} = defaultOptions) => async ({ res, req, store }, next) => {
+  store,
+  rate = 1000,
+}) => async ({ res, req, session, next }: SessionContext) => {
   if (
     group == null ||
-    req.session.group === 0 ||
-    (req.session.group & group) > 0
+    (session && (session.group === 0 || (session.group & group) > 0))
   ) {
     const uniqueKey = throttleKey(req, key);
     // record request count under throttle key
-    const count = await store.session.incr(uniqueKey);
-    if (count === 1) store.session.expire(uniqueKey, 2);
-    if (count > rate) return res.sendStatus(status.TooManyRequests);
+    const count = await store.incr(uniqueKey);
+    if (count === 1) store.expire(uniqueKey, 2);
+    if (count > rate) return res.sendStatus(statusCode.TooManyRequests);
   }
   next();
 };

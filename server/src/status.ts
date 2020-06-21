@@ -152,5 +152,5 @@ export const statusCode: Record<StatusName, StatusCode> = {
   ServiceUnavailable: 503,
   GatewayTimeout: 504,
   HTTPVersionNotSupported: 505,
-  NetworkAuthenticationRequired: 511,
+  NetworkAuthenticationRequired: 511
 };

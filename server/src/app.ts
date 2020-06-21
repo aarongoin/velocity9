@@ -3,14 +3,14 @@ import route from "./route";
 import { statusCode } from "./status";
 import log from "./log";
 import {
-  App as AppInterface,
+  AppInterface,
   AppOptions,
   AppContext,
   Context,
   Attachment,
   Route,
   RouteContext,
-  Middleware,
+  Middleware
 } from "./index.d";
 
 function catchAll({ res, req }: RouteContext) {
@@ -44,7 +44,11 @@ export class App implements AppInterface {
   attach(attachment: Context | Attachment): void {
     if (typeof attachment !== "function") {
       Object.entries(attachment).forEach(([k, v]) => {
-        this.context[k] = v;
+        if (k === "db") {
+          if (typeof v !== "object")
+            throw new Error("Overwriting app context 'db' key.");
+          this.context.db = { ...this.context.db, ...v };
+        } else this.context[k] = v;
       });
     } else this.attachments.push(attachment as Attachment);
   }
@@ -53,7 +57,7 @@ export class App implements AppInterface {
     log.info("Stopping server...");
     if (this.listenSocket) {
       uws.us_listen_socket_close(this.listenSocket);
-      this.attachments.forEach((fn) => fn(this.context));
+      this.attachments.forEach(fn => fn(this.context));
     }
   }
 
@@ -67,7 +71,7 @@ export class App implements AppInterface {
   }
 
   start(host: string, port: number): Promise<uws.us_listen_socket> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.route("/*").any(catchAll);
       this.core.listen(host, port, (socket: uws.us_listen_socket) => {
         if (!socket) {
@@ -76,7 +80,7 @@ export class App implements AppInterface {
         } else {
           this.listenSocket = socket;
           this.attachments = this.attachments
-            .map((v) => v(this.context))
+            .map(v => v(this.context))
             .filter(Boolean) as Attachment[];
         }
         return resolve(socket);

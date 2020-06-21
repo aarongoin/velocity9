@@ -1,51 +1,41 @@
-import { status, MiddlewareCreator } from "@velocity9/server";
+import { statusCode, MiddlewareCreator } from "@velocity9/server";
+import {
+  SessionInstance,
+  SessionData,
+  SessionOptions,
+  SessionStore,
+  SessionContext
+} from "./index.d";
 
-interface SessionData {
-  id: string;
-  csrf: string;
-  user_id: null | number;
-  group: number;
-  started: number; // timestamp of when session was started
-}
-
-export type SessionInstance<S extends SessionData = SessionData> = S & {
-  update(data: Partial<Omit<SessionData, "id" | "started">>): Promise<void>;
-  destroy(): Promise<unknown>;
-};
-
-// session db should conform to this interface
-export interface SessionStore {
-  set(key: string, value: string): Promise<unknown>;
-  get(key: string): Promise<string>;
-  del(key: string): Promise<unknown>;
-  expire(key: string, time: number): Promise<unknown>;
-}
-
-const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const alphabet =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 function hash(len = 32) {
   let id = "";
   while (len--) {
-    id += alphabet[Math.random() * 62 >> 0]
+    id += alphabet[(Math.random() * 62) >> 0];
   }
-  return id
+  return id;
 }
 
-function createSession(from: SessionData, store: SessionStore): SessionInstance {
+function createSession<D = unknown>(
+  from: SessionData<D>,
+  store: SessionStore
+): SessionInstance {
   return {
     ...from,
-    update: async (data) => {
-      const keys = Object.keys(data).filter(
-        (key) =>
-          key !== "update" && key !== "destroy" && data[key] !== this[key]
-      );
+    update: async data => {
+      // @ts-expect-error 2683 - `this` is the session instance
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { update, destroy, ...session } = this as SessionInstance;
+      const keys = Object.keys(data).filter(key => data[key] !== session[key]);
       if (keys.length) {
-        for (const key of keys) this[key] = data[key];
-        const { update, destroy, ...session } = this;
-        await store.set(`sessions/${this.id}`, JSON.stringify(session));
+        for (const key of keys) session[key] = data[key];
+        await store.set(`sessions/${session.id}`, JSON.stringify(session));
       }
       return Promise.resolve();
     },
-    destroy: () => store.del(`sessions/${this.id}`),
+    // @ts-expect-error 2683 - `this` is the session instance
+    destroy: () => store.del(`sessions/${this.id}`)
   };
 }
 
@@ -56,24 +46,18 @@ async function newSession(store: SessionStore): Promise<SessionInstance> {
     csrf: hash(),
     user_id: null,
     group: 0,
-    started: Date.now(),
+    started: Date.now()
   };
   await store.set(`sessions/${id}`, JSON.stringify(session));
   return createSession(session, store);
 }
 
-async function getSession(id: string, store: SessionStore): Promise<SessionInstance | null> {
+async function getSession(
+  id: string,
+  store: SessionStore
+): Promise<SessionInstance | null> {
   const session = JSON.parse(await store.get(`sessions/${id}`));
   return session ? createSession(session, store) : null;
-}
-
-export interface SessionOptions {
-  store: SessionStore; // interface wrapping db that stores sessions
-  domain?: string;
-  useCsrfToken?: boolean;
-  idleTimeout?: number; // time in seconds
-  maxLength?: number; // time in seconds
-  autoRenew?: boolean; // whether or not session should be renewed upon every request
 }
 
 export const Session: MiddlewareCreator<SessionOptions> = ({
@@ -81,50 +65,56 @@ export const Session: MiddlewareCreator<SessionOptions> = ({
   useCsrfToken = true,
   idleTimeout = 1800, // 30 minutes
   maxLength = 604800, // 1 week
-  autoRenew = true, // will reset the idleTimeout every request but will not override maxLength
-  store,
-}) => async (res, req, next) => {
+  autoRenew = true // will reset the idleTimeout every request but will not override maxLength
+}) => async (context: SessionContext) => {
+  const { req, res, next, db } = context;
+  if (process.env.NODE_ENV === "development") {
+    if (!db)
+      throw new Error(
+        "Cannot use session middleware without access to a session db."
+      );
+  }
   let isNewSession = false;
   if (req.cookies.session_id) {
-    req.session = await getSession(req.cookies.session_id, store);
+    context.session = await getSession(req.cookies.session_id, db.session);
     // should session be forced to expire?
     if (
       maxLength &&
-      req.session &&
-      Date.now() - req.session.started > maxLength
+      context.session &&
+      Date.now() - context.session.started > maxLength
     ) {
-      req.session.destroy();
-      req.session = null;
+      context.session.destroy();
+      context.session = null;
     }
   }
-  if (!req.cookies.session_id || !req.session) {
+  if (!req.cookies.session_id || !context.session) {
     isNewSession = true;
-    req.session = await newSession(store);
+    context.session = await newSession(db.session);
   }
   if (autoRenew || isNewSession) {
-    store.expire(`sessions/${req.session.id}`, idleTimeout);
+    db.session.expire(`sessions/${context.session.id}`, idleTimeout);
     domain = domain || req.getHeader("host");
-    res.setCookie("session_id", req.session.id, {
+    res.setCookie("session_id", context.session.id, {
       domain,
       maxAge: idleTimeout,
       sameSite: "strict",
-      secure: true,
+      secure: true
     });
     if (useCsrfToken)
-      res.setCookie("csrf-token", req.session.csrf, {
+      res.setCookie("csrf-token", context.session.csrf, {
         domain,
         maxAge: idleTimeout,
-        sameSite: "strict",
+        sameSite: "strict"
       });
   }
   if (
     useCsrfToken &&
     !isNewSession &&
-    req.session.csrf !==
+    context.session.csrf !==
       (req.getHeader("x-csrf-token") || req.params.csrf_token)
   ) {
     // TODO: log this csrf attempt
-    return res.sendStatus(status.Forbidden);
+    return res.sendStatus(statusCode.Forbidden);
   }
   next();
 };

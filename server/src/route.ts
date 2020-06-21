@@ -1,16 +1,31 @@
-import { HttpResponse, HttpRequest, TemplatedApp } from "uws";
+import {
+  HttpResponse as UwsResponse,
+  HttpRequest as UwsRequest,
+  TemplatedApp
+} from "uws";
 import { AppRequest } from "./request";
 import { AppResponse } from "./response";
 import * as validator from "./validators";
 import log from "./log";
 import { statusMessage, statusCode } from "./status";
 import { defer } from "./utils";
-import { Methods, Route, Middleware, Handler } from "./index.d";
+import {
+  Methods,
+  Route,
+  Middleware,
+  Handler,
+  RouteContext,
+  HttpResponse,
+  HttpRequest,
+  AppContext
+} from "./index.d";
+
+type ParamValidators = [string, validator.Validator<unknown>][];
 
 function Parser(url: string): Middleware {
   const [pathname, params] = url.split("?");
 
-  const url_params: [string, validator.Validator<any>][] = [];
+  const url_params: ParamValidators = [];
   for (const part of pathname.split("/")) {
     if (part.startsWith("{")) {
       const [name, type = "any"] = part
@@ -24,7 +39,7 @@ function Parser(url: string): Middleware {
       url_params.push([part.substring(1), validator.Any]);
   }
 
-  const query_params: [string, validator.Validator<any>][] = [];
+  const query_params: ParamValidators = [];
   for (const query of params.split(",")) {
     if (query.startsWith("{")) {
       const [name, type = "any"] = query
@@ -37,18 +52,18 @@ function Parser(url: string): Middleware {
     } else query_params.push([name, validator.Any]);
   }
 
-  return ({ req }, next) => {
-    const params: Record<string, any> = {};
-    // @ts-ignore - base req object is private, but really only to external users
+  return ({ req, next }) => {
+    const params: Record<string, unknown> = {};
+    // @ts-expect-error 2540 - req.req is only read-only to external users
     const q = new URLSearchParams(req.req.getQuery());
     for (const [name, validate] of query_params)
       params[name] = validate(q.get(name));
     for (const i in url_params) {
       const [name, validate] = url_params[i];
-      // @ts-ignore - base req object is private, but really only to external users
+      // @ts-expect-error 2540 - req.req is only read-only to external users
       params[name] = validate(req.req.getParameter(+i));
     }
-    // @ts-ignore
+    // @ts-expect-error 2540 - req.params is only read-only to external users
     req.params = params;
     next();
   };
@@ -59,7 +74,7 @@ function routeUrl(pattern: string): [string, boolean] {
   const [path, params] = pattern.split("?");
   const url = path
     .split("/")
-    .map((part) => {
+    .map(part => {
       if (part.startsWith("{")) {
         useParser = true;
         return `:${part.split(":")[0].substring(1)}`;
@@ -74,37 +89,40 @@ function routeUrl(pattern: string): [string, boolean] {
   return [url, useParser];
 }
 
+type RouteHandler = (res: UwsResponse, req: UwsRequest) => Promise<void>;
+type HandlerWrapper = (handler: Handler) => RouteHandler;
 function applyMiddleware(
   middlewares: Middleware[],
-  context: Record<string, any>
-): (
-  handler: Handler
-) => (res: HttpResponse, req: HttpRequest) => Promise<void> {
-  // @ts-ignore
+  context: AppContext
+): HandlerWrapper {
   return (handler: Handler) => {
     let done = true;
     const next = () => {
       done = false;
     };
-    return async (baseRes: HttpResponse, baseReq: HttpRequest) => {
+    return async (baseRes: UwsResponse, baseReq: UwsRequest) => {
       const res = new AppResponse(baseRes);
       const req = new AppRequest(
         baseReq,
         baseRes.onData,
         baseRes.getRemoteAddress()
       );
-      const payload = { res, req, ...context };
+      const payload: RouteContext<HttpResponse, HttpRequest> = {
+        ...context,
+        res,
+        req,
+        next
+      };
       if (!middlewares.length) return handler(payload);
       try {
         for (const middleware of middlewares) {
           done = true;
-          await middleware(payload, next);
+          await middleware(payload);
           if (done) return;
         }
         handler(payload);
       } catch (err) {
-        // TODO: should probably throttle IPs that are continually creating 500s
-        res.sendStatus(500);
+        res.sendStatus(statusCode.InternalServerError);
         log.error(err);
       }
     };
@@ -113,14 +131,14 @@ function applyMiddleware(
 
 export default function route(
   app: TemplatedApp,
-  context: Record<string, any>,
+  context: AppContext,
   middlewares: Middleware[]
 ) {
   return (pattern: string) => {
     const [url, useParser] = routeUrl(pattern);
     if (useParser) middlewares.push(Parser(url));
     const routeMiddleware = applyMiddleware(middlewares, context);
-    let used: Partial<Record<Methods | "any", boolean>> = {};
+    const used: Partial<Record<Methods | "any", boolean>> = {};
     const methods: Route = {
       use: (middleware: Middleware) => {
         middlewares.push(middleware);
@@ -183,12 +201,12 @@ export default function route(
         }
         app.trace(url, routeMiddleware(handler));
         return methods;
-      },
+      }
     };
     defer(
       () =>
         !used.any &&
-        app.any(url, (res: HttpResponse) =>
+        app.any(url, (res: UwsResponse) =>
           res.writeStatus(statusMessage[statusCode.MethodNotAllowed])
         )
     );

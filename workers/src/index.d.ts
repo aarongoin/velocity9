@@ -1,3 +1,5 @@
+import { RedisOptions } from "ioredis";
+
 export type JobState =
   | "waiting"
   | "scheduled"
@@ -50,7 +52,7 @@ export type Runnable<
   Err extends any = undefined
 > = (job: Job<Type, Data, Result, Err>) => Promise<JobResult<Result, Err>>;
 
-export interface JobScheduler {
+export interface JobSchedulerInterface {
   scheduleJob(job: Partial<Job<string>>, time?: number): Promise<string>;
   end(): void;
 }
@@ -62,7 +64,43 @@ export interface JobManagerOptions {
   workerDir: string;
 }
 
-export interface JobManager {
+export interface JobManagerInterface {
+  start(): void;
+  stop(): void;
+}
+
+export interface JobStats {
+  liveWorkers: number;
+  idleWorkers: number;
+  completedJobs: number;
+  failedJobs: number;
+  jobQueues: number[];
+  scheduledJobs: number;
+}
+
+// lib exports:
+// scheduler.ts
+export class JobScheduler implements JobSchedulerInterface {
+  protected db;
+  constructor(dbOptions: RedisOptions);
+  scheduleJob(job: Partial<Job<string>>, time = 0): Promise<string>;
+  async end(): Promise<void>;
+}
+// manager.ts
+export declare class JobManager implements JobManagerInterface {
+  private active;
+  private workers;
+  private db;
+  private maxWorkers;
+  private queues;
+  private workerData;
+  private stats;
+  constructor(options: JobManagerOptions);
+  private startWorker(index: number);
+  private scheduleJobs();
+  private async getCount();
+  private async run();
+  private async shutdown();
   start(): void;
   stop(): void;
 }

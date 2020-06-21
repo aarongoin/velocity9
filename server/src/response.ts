@@ -3,8 +3,7 @@ import { Writable } from "stream";
 import { HttpResponse as UwsResponse, RecognizedString } from "uws";
 import { statusMessage } from "./status";
 import mimeType from "./mime";
-import { HttpResponse, CookieOptions, StatusCode } from "./index.d"
-
+import { HttpResponse, CookieOptions, StatusCode } from "./index.d";
 
 function cookie(
   name: string,
@@ -28,13 +27,13 @@ function cookie(
   return attributes ? `${name}=${value}; ${attributes}` : `${name}=${value}`;
 }
 
-export class ResponseData extends Writable {
+class ResponseData extends Writable {
   _sink: UwsResponse;
   constructor(_sink: UwsResponse) {
     super();
     this._sink = _sink;
   }
-  // @ts-ignore
+  // @ts-expect-error 7006
   _write(chunk, _, cb) {
     this._sink.write(chunk);
     cb(null);
@@ -57,9 +56,11 @@ export class AppResponse implements HttpResponse {
   constructor(res: UwsResponse) {
     this.res = res;
     this.body = new ResponseData(res);
-    this.done = new Promise(resolve => { this.close = resolve; });
+    this.done = new Promise(resolve => {
+      this.close = resolve;
+    });
     this.res.onAborted(() => {
-      // @ts-ignore
+      // @ts-expect-error 2540 - open is only read-only to external users
       this.open = false;
       if (this.close) this.close("aborted");
     });
@@ -76,7 +77,7 @@ export class AppResponse implements HttpResponse {
   }
 
   private finalizeHeader(): void {
-    this.res.writeStatus(statusMessage[this.statusCode])
+    this.res.writeStatus(statusMessage[this.statusCode]);
     this.writeHeaders();
     this.writeCookies();
   }
@@ -138,7 +139,7 @@ export class AppResponse implements HttpResponse {
   }
 
   send(body?: RecognizedString): void {
-    // @ts-ignore
+    // @ts-expect-error 2540 - open is only read-only to external users
     this.open = false;
     this.res.cork(() => {
       this.finalizeHeader();
@@ -148,7 +149,7 @@ export class AppResponse implements HttpResponse {
 
   end(): void {
     this.finalizeHeader();
-    // @ts-ignore
+    // @ts-expect-error 2540 - open is only read-only to external users
     this.open = false;
     this.res.close();
     if (this.close) this.close("sent");

@@ -3,7 +3,7 @@
   "engines": {
     "node": "^13.0.0"
   },
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "A super fast web app server built on Node.js and uWebSockets.js.",
   "author": "Aaron Goin",
   "license": "BSD-3-Clause",
@@ -14,12 +14,14 @@
   },
   "homepage": "https://github.com/aarongoin/velocity9",
   "scripts": {
-    "build": "rollup -c && cp ./src/index.d.ts ./dist/index.d.ts",
+    "build": "npm run prebuild && npm run rawbuild",
+    "rawbuild": "NODE_ENV=development rollup -c && cp ./src/index.d.ts ./dist/index.d.ts",
+    "prebuild": "npm run prettier && npm run lint",
     "dev": "rollup -c -w",
-    "lint": "eslint --fix ./src/index.ts",
+    "lint": "eslint --fix ./src/*",
     "test": "jest",
-    "prettier": "prettier --write",
-    "publish": "npm publish --access public"
+    "prettier": "prettier --write ./src/*",
+    "precommit": "lint-staged"
   },
   "files": [
     "dist"
@@ -45,6 +47,16 @@
     "ts-node": "^7.0.1",
     "tslib": "^1.9.3",
     "typescript": "^3.9.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,css,md,scss}": [
+      "prettier --write",
+      "git add"
+    ],
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "git add"
+    ]
   },
   "jest": {
     "transform": {

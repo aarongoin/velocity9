@@ -44,7 +44,6 @@ class RequestData extends stream.Readable {
 class AppRequest {
     constructor(req, body, remote) {
         this.headers = {};
-        this.context = {};
         this.cookies = {};
         this.params = {};
         this.bodyUsed = false;
@@ -74,7 +73,7 @@ class AppRequest {
     arrayBuffer(valid = true) {
         if (valid && this.data)
             return Promise.resolve(this.data);
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             let buffer = new Buffer(0);
             const len = +this.getHeader("Content-Length");
             if (!Number.isNaN(len) && len > 0) {
@@ -92,7 +91,7 @@ class AppRequest {
     text(valid = true) {
         if (valid && this.data)
             return Promise.resolve(this.data);
-        return this.arrayBuffer(false).then((buffer) => {
+        return this.arrayBuffer(false).then(buffer => {
             const str = new string_decoder.StringDecoder("utf8").end(Buffer.from(buffer));
             if (valid)
                 this.data = str;
@@ -102,7 +101,7 @@ class AppRequest {
     json() {
         if (this.data)
             return Promise.resolve(this.data);
-        return this.text(false).then((str) => {
+        return this.text(false).then(str => {
             try {
                 this.data = JSON.parse(str);
             }
@@ -214,84 +213,84 @@ const statusCode = {
     ServiceUnavailable: 503,
     GatewayTimeout: 504,
     HTTPVersionNotSupported: 505,
-    NetworkAuthenticationRequired: 511,
+    NetworkAuthenticationRequired: 511
 };
 
 const mimeTypes = {
-    "aac": "audio/aac",
-    "abw": "application/x-abiword",
-    "arc": "application/x-freearc",
-    "avi": "AVI: Audio Video Interleave	video/x-msvideo",
-    "azw": "application/vnd.amazon.ebook",
-    "bin": "application/octet-stream",
-    "bmp": "image/bmp",
-    "bz": "application/x-bzip",
-    "bz2": "application/x-bzip2",
-    "csh": "application/x-csh",
-    "css": "text/css",
-    "csv": "text/csv",
-    "doc": "application/msword",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "eot": "application/vnd.ms-fontobject",
-    "epub": "application/epub+zip",
-    "gz": "application/gzip",
-    "gif": "image/gif",
-    "htm": "text/html",
-    "html": "text/html",
-    "ico": "image/vnd.microsoft.icon",
-    "ics": "text/calendar",
-    "jar": "application/java-archive",
-    "jpeg": "image/jpeg",
-    "jpg": "image/jpeg",
-    "js": "text/javascript",
-    "json": "application/json",
-    "jsonld": "application/ld+json",
-    "mid": "audio/x-midi",
-    "midi": "audio/x-midi",
-    "mjs": "text/javascript",
-    "mp3": "audio/mpeg",
-    "mpeg": "video/mpeg",
-    "mpkg": "application/vnd.apple.installer+xml",
-    "odp": "application/vnd.oasis.opendocument.presentation",
-    "ods": "application/vnd.oasis.opendocument.spreadsheet",
-    "odt": "application/vnd.oasis.opendocument.text",
-    "oga": "audio/ogg",
-    "ogv": "video/ogg",
-    "ogx": "application/ogg",
-    "opus": "audio/opus",
-    "otf": "font/otf",
-    "png": "image/png",
-    "pdf": "application/pdf",
-    "php": "application/x-httpd-php",
-    "ppt": "application/vnd.ms-powerpoint",
-    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "rar": "application/vnd.rar",
-    "rtf": "application/rtf",
-    "sh": "application/x-sh",
-    "svg": "image/svg+xml",
-    "swf": "application/x-shockwave-flash",
-    "tar": "application/x-tar",
-    "tif": "image/tiff",
-    "tiff": "image/tiff",
-    "ts": "video/mp2t",
-    "ttf": "font/ttf",
-    "txt": "text/plain",
-    "vsd": "application/vnd.visio",
-    "wav": "audio/wav",
-    "weba": "audio/webm",
-    "webm": "video/webm",
-    "webp": "image/webp",
-    "woff": "font/woff",
-    "woff2": "font/woff2",
-    "xhtml": "application/xhtml+xml",
-    "xls": "application/vnd.ms-excel",
-    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "xml": "application/xml",
-    "xul": "application/vnd.mozilla.xul+xml",
-    "zip": "application/zip",
+    aac: "audio/aac",
+    abw: "application/x-abiword",
+    arc: "application/x-freearc",
+    avi: "AVI: Audio Video Interleave	video/x-msvideo",
+    azw: "application/vnd.amazon.ebook",
+    bin: "application/octet-stream",
+    bmp: "image/bmp",
+    bz: "application/x-bzip",
+    bz2: "application/x-bzip2",
+    csh: "application/x-csh",
+    css: "text/css",
+    csv: "text/csv",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    eot: "application/vnd.ms-fontobject",
+    epub: "application/epub+zip",
+    gz: "application/gzip",
+    gif: "image/gif",
+    htm: "text/html",
+    html: "text/html",
+    ico: "image/vnd.microsoft.icon",
+    ics: "text/calendar",
+    jar: "application/java-archive",
+    jpeg: "image/jpeg",
+    jpg: "image/jpeg",
+    js: "text/javascript",
+    json: "application/json",
+    jsonld: "application/ld+json",
+    mid: "audio/x-midi",
+    midi: "audio/x-midi",
+    mjs: "text/javascript",
+    mp3: "audio/mpeg",
+    mpeg: "video/mpeg",
+    mpkg: "application/vnd.apple.installer+xml",
+    odp: "application/vnd.oasis.opendocument.presentation",
+    ods: "application/vnd.oasis.opendocument.spreadsheet",
+    odt: "application/vnd.oasis.opendocument.text",
+    oga: "audio/ogg",
+    ogv: "video/ogg",
+    ogx: "application/ogg",
+    opus: "audio/opus",
+    otf: "font/otf",
+    png: "image/png",
+    pdf: "application/pdf",
+    php: "application/x-httpd-php",
+    ppt: "application/vnd.ms-powerpoint",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    rar: "application/vnd.rar",
+    rtf: "application/rtf",
+    sh: "application/x-sh",
+    svg: "image/svg+xml",
+    swf: "application/x-shockwave-flash",
+    tar: "application/x-tar",
+    tif: "image/tiff",
+    tiff: "image/tiff",
+    ts: "video/mp2t",
+    ttf: "font/ttf",
+    txt: "text/plain",
+    vsd: "application/vnd.visio",
+    wav: "audio/wav",
+    weba: "audio/webm",
+    webm: "video/webm",
+    webp: "image/webp",
+    woff: "font/woff",
+    woff2: "font/woff2",
+    xhtml: "application/xhtml+xml",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    xml: "application/xml",
+    xul: "application/vnd.mozilla.xul+xml",
+    zip: "application/zip",
     "3gp": "video/3gpp",
     "3g2": "video/3gpp2",
-    "7z": "application/x-7z-compressed",
+    "7z": "application/x-7z-compressed"
 };
 
 function cookie(name, value, options) {
@@ -333,7 +332,9 @@ class AppResponse {
         this.close = null;
         this.res = res;
         this.body = new ResponseData(res);
-        this.done = new Promise(resolve => { this.close = resolve; });
+        this.done = new Promise(resolve => {
+            this.close = resolve;
+        });
         this.res.onAborted(() => {
             this.open = false;
             if (this.close)
@@ -449,7 +450,7 @@ function Bool(name, optional) {
 function Any(value) {
     return value;
 }
-function AnyValue(_name, _optional) {
+function AnyValue() {
     return Any;
 }
 function StringLiteral(name, optional, values) {
@@ -493,8 +494,8 @@ function Custom(name, type, optional) {
         return Regex(name, optional, new RegExp(pattern, flags));
     }
     const literals = type.split("|");
-    if (!literals.filter((v) => !Number.isNaN(Number.parseFloat(v))).length)
-        return NumberLiteral(name, optional, literals.map((v) => +v));
+    if (!literals.filter(v => !Number.isNaN(Number.parseFloat(v))).length)
+        return NumberLiteral(name, optional, literals.map(v => +v));
     return StringLiteral(name, optional, literals);
 }
 const basicValidators = {
@@ -502,7 +503,7 @@ const basicValidators = {
     number: Float,
     bool: Bool,
     string: AnyValue,
-    any: AnyValue,
+    any: AnyValue
 };
 
 function write(level, message) {
@@ -530,7 +531,7 @@ const log = {
     },
     critical: (message) => {
         setTimeout(write, 0, "critical", message);
-    },
+    }
 };
 
 function defer(fn) {
@@ -567,7 +568,7 @@ function Parser(url) {
         else
             query_params.push([name, Any]);
     }
-    return ({ req }, next) => {
+    return ({ req, next }) => {
         const params = {};
         const q = new URLSearchParams(req.req.getQuery());
         for (const [name, validate] of query_params)
@@ -585,7 +586,7 @@ function routeUrl(pattern) {
     const [path, params] = pattern.split("?");
     const url = path
         .split("/")
-        .map((part) => {
+        .map(part => {
         if (part.startsWith("{")) {
             useParser = true;
             return `:${part.split(":")[0].substring(1)}`;
@@ -608,20 +609,22 @@ function applyMiddleware(middlewares, context) {
         return (baseRes, baseReq) => __awaiter(this, void 0, void 0, function* () {
             const res = new AppResponse(baseRes);
             const req = new AppRequest(baseReq, baseRes.onData, baseRes.getRemoteAddress());
-            const payload = Object.assign({ res, req }, context);
+            const payload = Object.assign(Object.assign({}, context), { res,
+                req,
+                next });
             if (!middlewares.length)
                 return handler(payload);
             try {
                 for (const middleware of middlewares) {
                     done = true;
-                    yield middleware(payload, next);
+                    yield middleware(payload);
                     if (done)
                         return;
                 }
                 handler(payload);
             }
             catch (err) {
-                res.sendStatus(500);
+                res.sendStatus(statusCode.InternalServerError);
                 log.error(err);
             }
         });
@@ -633,7 +636,7 @@ function route(app, context, middlewares) {
         if (useParser)
             middlewares.push(Parser(url));
         const routeMiddleware = applyMiddleware(middlewares, context);
-        let used = {};
+        const used = {};
         const methods = {
             use: (middleware) => {
                 middlewares.push(middleware);
@@ -696,7 +699,7 @@ function route(app, context, middlewares) {
                 }
                 app.trace(url, routeMiddleware(handler));
                 return methods;
-            },
+            }
         };
         defer(() => !used.any &&
             app.any(url, (res) => res.writeStatus(statusMessage[statusCode.MethodNotAllowed])));
@@ -731,7 +734,13 @@ class App {
     attach(attachment) {
         if (typeof attachment !== "function") {
             Object.entries(attachment).forEach(([k, v]) => {
-                this.context[k] = v;
+                if (k === "db") {
+                    if (typeof v !== "object")
+                        throw new Error("Overwriting app context 'db' key.");
+                    this.context.db = Object.assign(Object.assign({}, this.context.db), v);
+                }
+                else
+                    this.context[k] = v;
             });
         }
         else
@@ -741,7 +750,7 @@ class App {
         log.info("Stopping server...");
         if (this.listenSocket) {
             uws.us_listen_socket_close(this.listenSocket);
-            this.attachments.forEach((fn) => fn(this.context));
+            this.attachments.forEach(fn => fn(this.context));
         }
     }
     use(middleware) {
@@ -752,7 +761,7 @@ class App {
         return route(this.core, this.context, this.middlewares)(pattern);
     }
     start(host, port) {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             this.route("/*").any(catchAll);
             this.core.listen(host, port, (socket) => {
                 if (!socket) {
@@ -762,7 +771,7 @@ class App {
                 else {
                     this.listenSocket = socket;
                     this.attachments = this.attachments
-                        .map((v) => v(this.context))
+                        .map(v => v(this.context))
                         .filter(Boolean);
                 }
                 return resolve(socket);
@@ -774,7 +783,5 @@ class App {
 exports.App = App;
 exports.AppRequest = AppRequest;
 exports.AppResponse = AppResponse;
-exports.RequestData = RequestData;
-exports.ResponseData = ResponseData;
 exports.statusCode = statusCode;
 exports.statusMessage = statusMessage;

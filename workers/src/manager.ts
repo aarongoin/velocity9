@@ -2,18 +2,10 @@ import { Worker } from "worker_threads";
 import Redis from "ioredis";
 import { WorkerData, WorkerState, WorkerMessage } from "./worker";
 import {
+  JobStats,
   JobManagerOptions,
-  JobManager as JobManagerInterface,
+  JobManagerInterface,
 } from "./index.d";
-
-interface JobStats {
-  liveWorkers: number;
-  idleWorkers: number;
-  completedJobs: number;
-  failedJobs: number;
-  jobQueues: number[];
-  scheduledJobs: number;
-}
 
 function statsObject(priorityLevels: number): JobStats {
   return {

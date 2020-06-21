@@ -35,7 +35,7 @@ export function Any(value: string | null): string | null {
   return value;
 }
 
-export function AnyValue(_name: string, _optional: boolean): Validator<string> {
+export function AnyValue(): Validator<string> {
   return Any;
 }
 
@@ -66,7 +66,8 @@ export function NumberLiteral(
 ): Validator<number> {
   return (value: string | null): number | null => {
     if (value === null && optional) return null;
-    if (value) for (const possible of values) if (+value === possible) return +value;
+    if (value)
+      for (const possible of values) if (+value === possible) return +value;
     throw new Error(
       `Expected parameter ${name} to be one of: ${values.join(" | ")}`
     );
@@ -90,27 +91,27 @@ export function Custom(
   name: string,
   type: string,
   optional: boolean
-): Validator<any> {
+): Validator<unknown> {
   if (type.startsWith("/")) {
     const [, pattern, flags] = type.split("/");
     return Regex(name, optional, new RegExp(pattern, flags));
   }
   const literals = type.split("|");
   // are these all numeric literals
-  if (!literals.filter((v) => !Number.isNaN(Number.parseFloat(v))).length)
+  if (!literals.filter(v => !Number.isNaN(Number.parseFloat(v))).length)
     return NumberLiteral(
       name,
       optional,
-      literals.map((v) => +v)
+      literals.map(v => +v)
     );
   // else treat them as string literals
   return StringLiteral(name, optional, literals);
 }
 
-export const basicValidators: Record<string, ValidatorFn<any>> = {
+export const basicValidators: Record<string, ValidatorFn<unknown>> = {
   int: Int,
   number: Float,
   bool: Bool,
   string: AnyValue,
-  any: AnyValue,
+  any: AnyValue
 };

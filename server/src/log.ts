@@ -29,6 +29,6 @@ const log: Log = {
   },
   critical: (message: string) => {
     setTimeout(write, 0, "critical", message);
-  },
+  }
 };
 export default log;

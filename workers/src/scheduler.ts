@@ -1,5 +1,5 @@
 import Redis from "ioredis";
-import { Job, JobScheduler as JobSchedulerInterface } from "./index.d";
+import { Job, JobSchedulerInterface } from "./index.d";
 
 function jobId(): string {
   return `${Date.now() & 0xfffffff}${(Math.random() * 0xffffffff) >>> 0}`;
@@ -8,7 +8,7 @@ function jobId(): string {
 export class JobScheduler implements JobSchedulerInterface {
   protected db: Redis.Redis;
 
-  constructor(dbOptions: {}) {
+  constructor(dbOptions: Redis.RedisOptions) {
     this.db = new Redis(dbOptions);
   }
 

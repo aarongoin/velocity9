@@ -1,14 +1,15 @@
-import log from "../log";
-import { Middleware } from "../types";
+import { log, Middleware } from "@velocity9/server";
 
-const RouteLogger: Middleware = ({ res, req }, next) => {
+const RequestLogger: Middleware = ({ res, req, next }) => {
   const start = Date.now();
-  res.done.then(() =>
-    log[
-      res.statusCode < 400 ? "info" : res.statusCode < 500 ? "warning" : "error"
-    ](`${req.method} ${req.url} - ${res.statusCode} (${Date.now() - start} ms)`)
-  );
+  res.done.then(() => {
+    // @ts-ignore
+    const statusCode = res.statusCode;
+    log[statusCode < 400 ? "info" : statusCode < 500 ? "warning" : "error"](
+      `${req.method} ${req.url} - ${statusCode} (${Date.now() - start} ms)`
+    );
+  });
   next();
 };
 
-export default RouteLogger;
+export default RequestLogger;
