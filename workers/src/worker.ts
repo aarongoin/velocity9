@@ -1,26 +1,14 @@
 import { parentPort, workerData } from "worker_threads";
 import { JobScheduler } from "./scheduler";
-import { Job, Runnable } from "./index.d";
-
-export interface WorkerData {
-  queues: string[];
-  dbOptions: {};
-  workerDir: string;
-}
-
-export type WorkerState = "started" | "active" | "idle" | "stopped";
-
-export type WorkerMessage = "stopped" | "idle" | "failed" | "completed";
+import { Job, Runnable, WorkerData, WorkerMessage } from "./index.d";
 
 class JobWorker extends JobScheduler {
-  queues: string[];
-  workerDir: string;
-  jobRunners: Record<string, Runnable<string>> = {};
-  active: boolean;
+  private workerDir: string;
+  private jobRunners: Record<string, Runnable<string>> = {};
+  private active: boolean;
 
-  constructor({ queues, dbOptions, workerDir }: WorkerData) {
-    super(dbOptions);
-    this.queues = queues;
+  constructor({ jobStorePath, workerDir }: WorkerData) {
+    super(jobStorePath);
     this.workerDir = workerDir;
     this.active = true;
 
@@ -32,46 +20,48 @@ class JobWorker extends JobScheduler {
     });
   }
 
-  postMessage(msg: WorkerMessage): void {
+  private postMessage(msg: WorkerMessage): void {
     parentPort?.postMessage(msg);
   }
 
-  getJobRunner(type: string): Runnable<string> {
+  private getJobRunner(type: string): Runnable<string> {
     this.jobRunners[type] =
       this.jobRunners[type] || require(`${this.workerDir}/${type}`).default;
     return this.jobRunners[type];
   }
 
-  completeJob<T extends string, D = undefined>(job: Job<T>, result: D): void {
+  private completeJob<T extends string, D = undefined>(
+    job: Job<T>,
+    result: D
+  ): void {
     job.state = "complete";
-    // @ts-ignore
+    // @ts-expect-error 2339
     if (result) job.result = result;
-    this.db.set(job.key, JSON.stringify(job));
+    this.db.setJob(job.key, job);
     this.postMessage("completed");
   }
 
-  failJob<T extends string, E = undefined>(job: Job<T>, error: E): void {
+  private failJob<T extends string, E = undefined>(
+    job: Job<T>,
+    error: E
+  ): void {
     job.state = "complete";
-    // @ts-ignore
+    // @ts-expect-error 2339
     if (error) job.error = error;
-    this.db.set(job.key, JSON.stringify(job));
+    this.db.setJob(job.key, job);
     this.postMessage("failed");
   }
 
-  async getJob() {
-    const [, jobKey] = await this.db.blpop(...this.queues, 1);
+  private async getJob(): Promise<void> {
+    const jobKey = await this.db.getNextInQueue();
     if (jobKey) this.runJob(jobKey);
     else this.postMessage("idle");
   }
 
-  async runJob(jobKey: string) {
-    const rawJob = await this.db.get(jobKey);
-    if (rawJob) {
-      const job = JSON.parse(rawJob) as Job<string>;
-
-      // @ts-ignore
-      const result = await this.getJobRunner(job.type)(job, db);
-
+  private async runJob(jobKey: string): Promise<void> {
+    const job = await this.db.getJob(jobKey);
+    if (job) {
+      const result = await this.getJobRunner(job.type)(job);
       if (result.action === "complete") this.completeJob(job, result.result);
       else if (result.action === "fail") this.failJob(job, result.error);
       else this.scheduleJob(job, result.time);

@@ -2,10 +2,7 @@
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
-function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
-
 var worker_threads = require('worker_threads');
-var Redis = _interopDefault(require('ioredis'));
 
 function __awaiter(thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -17,41 +14,34 @@ function __awaiter(thisArg, _arguments, P, generator) {
     });
 }
 
-function statsObject(priorityLevels) {
+function statsObject() {
     return {
         liveWorkers: 0,
         idleWorkers: 0,
+        stoppedWorkers: 0,
         completedJobs: 0,
         failedJobs: 0,
-        jobQueues: new Array(priorityLevels).fill(0),
-        scheduledJobs: 0,
+        scheduledJobs: 0
     };
 }
 class JobManager {
-    constructor({ priorityLevels = 5, maxWorkers = 4, dbOptions, workerDir, }) {
+    constructor({ jobStorePath, workerDir, maxWorkers = 4, pollRate = 1000 }) {
         this.active = false;
-        this.workers = [];
         this.maxWorkers = 0;
-        this.queues = [];
-        if (priorityLevels < 5)
-            priorityLevels = 5;
-        this.db = new Redis(dbOptions);
+        this.workers = [];
+        this.db = require(jobStorePath).default;
         this.maxWorkers = maxWorkers;
-        this.queues = new Array(priorityLevels)
-            .fill("jobs/queue/")
-            .map((v, i) => `${v}${i + 1}`);
-        this.stats = statsObject(priorityLevels);
+        this.pollRate = pollRate;
+        this.stats = statsObject();
         this.workerData = {
-            queues: this.queues,
-            dbOptions,
-            workerDir,
+            jobStorePath,
+            workerDir
         };
     }
     startWorker(index) {
         const worker = new worker_threads.Worker("./worker", { workerData: this.workerData });
         this.workers.push([worker, "started"]);
         worker.on("online", () => {
-            this.stats.liveWorkers++;
             this.workers[index][1] = "active";
         });
         worker.on("message", (msg) => {
@@ -63,58 +53,32 @@ class JobManager {
                     this.stats.failedJobs++;
                     break;
                 case "idle":
-                    this.stats.idleWorkers++;
                     this.workers[index][1] = msg;
                     break;
                 case "stopped":
-                    if (this.workers[index][1] === "idle")
-                        this.stats.idleWorkers--;
+                    this.workers[index][1] = msg;
                     this.workers[index][0].terminate();
-                    this.stats.liveWorkers--;
             }
         });
         worker.on("error", () => {
-            if (this.workers[index][1] === "idle")
-                this.stats.idleWorkers--;
-            this.stats.liveWorkers--;
             if (this.active)
                 this.startWorker(index);
         });
     }
     scheduleJobs() {
-        const now = Date.now();
         this.db
-            .multi()
-            .zrangebyscore("jobs/queue/scheduled", 0, now)
-            .zremrangebyscore("jobs/queue/scheduled", 0, now)
-            .zcard("jobs/queue/scheduled")
-            .exec((err, [jobs, _, [, scheduled]]) => {
-            if (err) ;
-            else if (jobs.length) {
-                this.stats.scheduledJobs = scheduled;
-                const todo = jobs
-                    .reduce((acc, [, job]) => {
-                    const [jobId, priority] = job.split(".");
-                    acc[priority - 1].push(jobId);
-                    return acc;
-                }, this.queues.map((key) => [key]))
-                    .filter((cmd) => cmd.length > 1);
-                this.db.multi(todo).exec((err) => {
-                });
-            }
-        });
-    }
-    getCount() {
-        return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve) => {
-                this.db
-                    .multi(this.queues.map((key) => ["llen", key]))
-                    .exec((_, results) => {
-                    const counts = results.map(([, v]) => +v);
-                    this.stats.jobQueues = counts;
-                    resolve(counts.reduce((sum, v) => sum + v, 0));
-                });
-            });
+            .pullScheduledUntil(Date.now())
+            .then(jobs => {
+            const todo = jobs.reduce((acc, [, job]) => {
+                const [jobId, priority] = job.split(".");
+                acc[priority] = acc[priority] || [];
+                acc[priority].push(jobId);
+                return acc;
+            }, {});
+            Object.entries(todo).forEach(([priority, jobs]) => this.db.addAllToQueue(+priority, jobs));
+        })
+            .catch(err => {
+            throw err;
         });
     }
     run() {
@@ -123,29 +87,26 @@ class JobManager {
                 this.shutdown();
             const idle = this.workers.filter(([, state]) => state === "idle");
             if (idle.length > 0) {
-                let jobCount = yield this.getCount();
+                let jobCount = yield this.db.getQueuedLength();
                 if (jobCount) {
                     for (const [worker] of idle) {
                         if (jobCount-- === 0)
                             break;
                         worker.postMessage("start");
-                        this.stats.idleWorkers--;
                     }
                 }
             }
             this.scheduleJobs();
-            this.db.xadd("jobs/stats", Object.entries(this.stats).flat());
-            this.stats = statsObject(this.queues.length);
-            setTimeout(() => this.run(), 1000);
+            setTimeout(() => this.run(), this.pollRate);
         });
     }
     shutdown() {
         return __awaiter(this, void 0, void 0, function* () {
             const running = this.workers.some(([, state]) => state !== "stopped");
             if (running)
-                setTimeout(() => this.shutdown(), 500);
+                setTimeout(() => this.shutdown(), Math.max(this.pollRate >>> 1, 10));
             else
-                yield this.db.quit();
+                yield this.db.closeConnection();
         });
     }
     start() {
@@ -162,31 +123,39 @@ class JobManager {
 }
 
 function jobId() {
-    return `${Date.now() & 0xfffffff}${(Math.random() * 0xffffffff) >>> 0}`;
+    return `${Date.now() & 0xfffffff}${(Math.random() * 0xffffffff) >>>
+        0}`.padEnd(19, "0");
 }
 class JobScheduler {
-    constructor(dbOptions) {
-        this.db = new Redis(dbOptions);
+    constructor(jobStorePath) {
+        this.db = require(jobStorePath).default;
     }
     scheduleJob(job, time = 0) {
-        const key = job.key || `jobs/${job.type}/${jobId()}`;
-        if (!job.key)
-            job.key = key;
-        if (!job.type)
-            job.type = "global";
-        if (!job.priority)
-            job.priority = 1;
-        job.state = time > 0 ? "scheduled" : "waiting";
-        return new Promise((resolve, reject) => {
-            const cmd = this.db.multi().set(key, JSON.stringify(job));
-            (time > 0
-                ? cmd.rpush("jobs/queue/scheduled", `${key}.${job.priority}.${time}`)
-                : cmd.rpush(`jobs/queue/${job.priority}`, key)).exec((err) => (err ? reject(err) : resolve(key)));
+        return __awaiter(this, void 0, void 0, function* () {
+            const key = job.key || `jobs/${job.type}/${jobId()}`;
+            if (!job.key)
+                job.key = key;
+            if (!job.type)
+                job.type = "global";
+            if (!job.priority)
+                job.priority = 1;
+            job.state = time > 0 ? "scheduled" : "waiting";
+            try {
+                yield this.db
+                    .setJob(key, job)
+                    .then(() => time > 0
+                    ? this.db.addToSchedule(time, `${key}.${job.priority}`)
+                    : this.db.addToQueue(job.priority || 1, key));
+                return key;
+            }
+            catch (err) {
+                throw err;
+            }
         });
     }
     end() {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.db.quit();
+            yield this.db.closeConnection();
         });
     }
 }

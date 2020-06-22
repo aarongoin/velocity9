@@ -1,7 +1,7 @@
 {
   "name": "@velocity9/pack",
   "engines": {
-    "node": "^13.0.0"
+    "node": "^12.0.0"
   },
   "version": "0.1.0",
   "description": "Compression & decompression middleware for velocity9.",

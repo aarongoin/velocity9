@@ -1,9 +1,6 @@
 'use strict';
 
-function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
-
 var worker_threads = require('worker_threads');
-var Redis = _interopDefault(require('ioredis'));
 
 function __awaiter(thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -16,40 +13,47 @@ function __awaiter(thisArg, _arguments, P, generator) {
 }
 
 function jobId() {
-    return `${Date.now() & 0xfffffff}${(Math.random() * 0xffffffff) >>> 0}`;
+    return `${Date.now() & 0xfffffff}${(Math.random() * 0xffffffff) >>>
+        0}`.padEnd(19, "0");
 }
 class JobScheduler {
-    constructor(dbOptions) {
-        this.db = new Redis(dbOptions);
+    constructor(jobStorePath) {
+        this.db = require(jobStorePath).default;
     }
     scheduleJob(job, time = 0) {
-        const key = job.key || `jobs/${job.type}/${jobId()}`;
-        if (!job.key)
-            job.key = key;
-        if (!job.type)
-            job.type = "global";
-        if (!job.priority)
-            job.priority = 1;
-        job.state = time > 0 ? "scheduled" : "waiting";
-        return new Promise((resolve, reject) => {
-            const cmd = this.db.multi().set(key, JSON.stringify(job));
-            (time > 0
-                ? cmd.rpush("jobs/queue/scheduled", `${key}.${job.priority}.${time}`)
-                : cmd.rpush(`jobs/queue/${job.priority}`, key)).exec((err) => (err ? reject(err) : resolve(key)));
+        return __awaiter(this, void 0, void 0, function* () {
+            const key = job.key || `jobs/${job.type}/${jobId()}`;
+            if (!job.key)
+                job.key = key;
+            if (!job.type)
+                job.type = "global";
+            if (!job.priority)
+                job.priority = 1;
+            job.state = time > 0 ? "scheduled" : "waiting";
+            try {
+                yield this.db
+                    .setJob(key, job)
+                    .then(() => time > 0
+                    ? this.db.addToSchedule(time, `${key}.${job.priority}`)
+                    : this.db.addToQueue(job.priority || 1, key));
+                return key;
+            }
+            catch (err) {
+                throw err;
+            }
         });
     }
     end() {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.db.quit();
+            yield this.db.closeConnection();
         });
     }
 }
 
 class JobWorker extends JobScheduler {
-    constructor({ queues, dbOptions, workerDir }) {
-        super(dbOptions);
+    constructor({ jobStorePath, workerDir }) {
+        super(jobStorePath);
         this.jobRunners = {};
-        this.queues = queues;
         this.workerDir = workerDir;
         this.active = true;
         worker_threads.parentPort === null || worker_threads.parentPort === void 0 ? void 0 : worker_threads.parentPort.on("message", (cmd) => {
@@ -72,19 +76,19 @@ class JobWorker extends JobScheduler {
         job.state = "complete";
         if (result)
             job.result = result;
-        this.db.set(job.key, JSON.stringify(job));
+        this.db.setJob(job.key, job);
         this.postMessage("completed");
     }
     failJob(job, error) {
         job.state = "complete";
         if (error)
             job.error = error;
-        this.db.set(job.key, JSON.stringify(job));
+        this.db.setJob(job.key, job);
         this.postMessage("failed");
     }
     getJob() {
         return __awaiter(this, void 0, void 0, function* () {
-            const [, jobKey] = yield this.db.blpop(...this.queues, 1);
+            const jobKey = yield this.db.getNextInQueue();
             if (jobKey)
                 this.runJob(jobKey);
             else
@@ -93,10 +97,9 @@ class JobWorker extends JobScheduler {
     }
     runJob(jobKey) {
         return __awaiter(this, void 0, void 0, function* () {
-            const rawJob = yield this.db.get(jobKey);
-            if (rawJob) {
-                const job = JSON.parse(rawJob);
-                const result = yield this.getJobRunner(job.type)(job, db);
+            const job = yield this.db.getJob(jobKey);
+            if (job) {
+                const result = yield this.getJobRunner(job.type)(job);
                 if (result.action === "complete")
                     this.completeJob(job, result.result);
                 else if (result.action === "fail")

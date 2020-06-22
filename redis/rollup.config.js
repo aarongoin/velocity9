@@ -13,7 +13,7 @@ export default [
       }),
     ],
     output: { file: pkg.main, format: "cjs" },
-    external: ["worker_threads"],
+    external: ["ioredis"],
   },
   {
     input: "src/worker.ts",
@@ -25,6 +25,6 @@ export default [
       }),
     ],
     output: { file: "dist/worker.js", format: "cjs" },
-    external: ["worker_threads"],
+    external: ["ioredis"],
   },
 ];

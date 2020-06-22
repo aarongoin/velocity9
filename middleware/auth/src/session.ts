@@ -3,7 +3,7 @@ import {
   SessionInstance,
   SessionData,
   SessionOptions,
-  SessionStore,
+  SessionStoreInterface,
   SessionContext
 } from "./index.d";
 
@@ -19,7 +19,7 @@ function hash(len = 32) {
 
 function createSession<D = unknown>(
   from: SessionData<D>,
-  store: SessionStore
+  store: SessionStoreInterface
 ): SessionInstance {
   return {
     ...from,
@@ -30,16 +30,16 @@ function createSession<D = unknown>(
       const keys = Object.keys(data).filter(key => data[key] !== session[key]);
       if (keys.length) {
         for (const key of keys) session[key] = data[key];
-        await store.set(`sessions/${session.id}`, JSON.stringify(session));
+        await store.setSession(`sessions/${session.id}`, session);
       }
       return Promise.resolve();
     },
     // @ts-expect-error 2683 - `this` is the session instance
-    destroy: () => store.del(`sessions/${this.id}`)
+    destroy: () => store.delSession(`sessions/${this.id}`)
   };
 }
 
-async function newSession(store: SessionStore): Promise<SessionInstance> {
+async function newSession(store: SessionStoreInterface): Promise<SessionInstance> {
   const id = hash();
   const session = {
     id,
@@ -48,15 +48,15 @@ async function newSession(store: SessionStore): Promise<SessionInstance> {
     group: 0,
     started: Date.now()
   };
-  await store.set(`sessions/${id}`, JSON.stringify(session));
+  await store.setSession(`sessions/${id}`, session);
   return createSession(session, store);
 }
 
 async function getSession(
   id: string,
-  store: SessionStore
+  store: SessionStoreInterface
 ): Promise<SessionInstance | null> {
-  const session = JSON.parse(await store.get(`sessions/${id}`));
+  const session = await store.getSession(`sessions/${id}`);
   return session ? createSession(session, store) : null;
 }
 
@@ -92,7 +92,7 @@ export const Session: MiddlewareCreator<SessionOptions> = ({
     context.session = await newSession(db.session);
   }
   if (autoRenew || isNewSession) {
-    db.session.expire(`sessions/${context.session.id}`, idleTimeout);
+    db.session.expireSession(`sessions/${context.session.id}`, idleTimeout);
     domain = domain || req.getHeader("host");
     res.setCookie("session_id", context.session.id, {
       domain,

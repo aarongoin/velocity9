@@ -20,11 +20,11 @@ export interface SessionInstance<D = unknown> extends SessionData<D> {
 }
 
 // session db should conform to this interface
-export interface SessionStore {
-  set(key: string, value: string): Promise<unknown>;
-  get(key: string): Promise<string>;
-  del(key: string): Promise<unknown>;
-  expire(key: string, time: number): Promise<unknown>;
+export interface SessionStoreInterface {
+  getSession(key: string): Promise<SessionData | null>;
+  setSession(key: string, value: SessionData): Promise<unknown>;
+  delSession(key: string): Promise<unknown>;
+  expireSession(key: string, inSeconds: number): Promise<unknown>;
 }
 
 export interface SessionOptions {
@@ -46,7 +46,7 @@ export interface SessionContext
     "req" | "res" | "next"
   > {
   session?: null | SessionInstance;
-  db?: RouteContext.db & { session: SessionStore };
+  db?: RouteContext.db & { session: SessionStoreInterface };
 }
 
 // lib exports

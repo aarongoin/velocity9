@@ -1,33 +1,38 @@
-import Redis from "ioredis";
-import { Job, JobSchedulerInterface } from "./index.d";
+import { Job, JobSchedulerInterface, JobStoreInterface } from "./index.d";
 
 function jobId(): string {
-  return `${Date.now() & 0xfffffff}${(Math.random() * 0xffffffff) >>> 0}`;
+  return `${Date.now() & 0xfffffff}${(Math.random() * 0xffffffff) >>>
+    0}`.padEnd(19, "0");
 }
 
 export class JobScheduler implements JobSchedulerInterface {
-  protected db: Redis.Redis;
+  protected db: JobStoreInterface;
 
-  constructor(dbOptions: Redis.RedisOptions) {
-    this.db = new Redis(dbOptions);
+  constructor(jobStorePath: string) {
+    this.db = require(jobStorePath).default;
   }
 
-  scheduleJob(job: Partial<Job<string>>, time = 0): Promise<string> {
+  async scheduleJob(job: Partial<Job<string>>, time = 0): Promise<string> {
     const key = job.key || `jobs/${job.type}/${jobId()}`;
     if (!job.key) job.key = key;
     if (!job.type) job.type = "global";
     if (!job.priority) job.priority = 1;
     job.state = time > 0 ? "scheduled" : "waiting";
-    return new Promise((resolve, reject) => {
-      const cmd = this.db.multi().set(key, JSON.stringify(job));
-      (time > 0
-        ? cmd.rpush("jobs/queue/scheduled", `${key}.${job.priority}.${time}`)
-        : cmd.rpush(`jobs/queue/${job.priority}`, key)
-      ).exec((err: Error | null) => (err ? reject(err) : resolve(key)));
-    });
+    try {
+      await this.db
+        .setJob(key, job)
+        .then(() =>
+          time > 0
+            ? this.db.addToSchedule(time, `${key}.${job.priority}`)
+            : this.db.addToQueue(job.priority || 1, key)
+        );
+      return key;
+    } catch (err) {
+      throw err;
+    }
   }
 
   async end(): Promise<void> {
-    await this.db.quit();
+    await this.db.closeConnection();
   }
 }

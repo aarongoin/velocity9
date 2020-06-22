@@ -1,7 +1,7 @@
 {
   "name": "@velocity9/helmet",
   "engines": {
-    "node": "^13.0.0"
+    "node": "^12.0.0"
   },
   "version": "0.1.2",
   "description": "Secure headers middleware for velocity9.",

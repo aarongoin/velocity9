@@ -1,5 +1,3 @@
-import { RedisOptions } from "ioredis";
-
 export type JobState =
   | "waiting"
   | "scheduled"
@@ -10,8 +8,8 @@ export type JobState =
 export type Job<
   Type extends string,
   Data extends {} = {},
-  Result extends any = undefined,
-  Err extends any = undefined
+  Result = undefined,
+  Err = undefined
 > = {
   key: string;
   type: Type;
@@ -48,8 +46,8 @@ export type JobResult<Result = undefined, Err = undefined> =
 export type Runnable<
   Type extends string,
   Data extends {} = {},
-  Result extends any = undefined,
-  Err extends any = undefined
+  Result = undefined,
+  Err = undefined
 > = (job: Job<Type, Data, Result, Err>) => Promise<JobResult<Result, Err>>;
 
 export interface JobSchedulerInterface {
@@ -58,10 +56,10 @@ export interface JobSchedulerInterface {
 }
 
 export interface JobManagerOptions {
-  priorityLevels?: number;
-  maxWorkers?: number;
-  dbOptions: {};
+  jobStorePath: string;
   workerDir: string;
+  pollRate?: number;
+  maxWorkers?: number;
 }
 
 export interface JobManagerInterface {
@@ -72,35 +70,73 @@ export interface JobManagerInterface {
 export interface JobStats {
   liveWorkers: number;
   idleWorkers: number;
+  stoppedWorkers: number;
   completedJobs: number;
   failedJobs: number;
-  jobQueues: number[];
   scheduledJobs: number;
 }
+
+export interface JobStoreInterface {
+  setJob(jobKey: string, job: Job): Promise<unknown>;
+  getJob(jobKey: string): Promise<Job | null>;
+  getNextInQueue(): Promise<string | null>;
+  getQueuedLength(): Promise<number>;
+  addToQueue(priority: number, value: string): Promise<unknown>;
+  addAllToQueue(priority: number, values: string[]): Promise<unknown>;
+  addToSchedule(time: number, value: string): Promise<unknown>;
+  pullScheduledUntil(time: number): Promise<string[]>;
+  getScheduledLength(): Promise<number>;
+  recordJobStats(stats: JobStats): Promise<unknown>;
+  closeConnection(): Promise<void>;
+}
+
+export interface WorkerData {
+  jobStorePath: string;
+  workerDir: string;
+}
+
+export type WorkerState = "started" | "active" | "idle" | "stopped";
+
+export type WorkerMessage = "stopped" | "idle" | "failed" | "completed";
 
 // lib exports:
 // scheduler.ts
 export class JobScheduler implements JobSchedulerInterface {
   protected db;
-  constructor(dbOptions: RedisOptions);
-  scheduleJob(job: Partial<Job<string>>, time = 0): Promise<string>;
+  constructor(jobStorePath: string);
+  scheduleJob(job: Partial<Job<string>>, time?: number): Promise<string>;
   async end(): Promise<void>;
 }
 // manager.ts
 export declare class JobManager implements JobManagerInterface {
   private active;
-  private workers;
-  private db;
   private maxWorkers;
-  private queues;
+  private workers;
+  private pollRate;
   private workerData;
   private stats;
+  private db;
   constructor(options: JobManagerOptions);
   private startWorker(index: number);
   private scheduleJobs();
-  private async getCount();
   private async run();
   private async shutdown();
   start(): void;
   stop(): void;
+}
+// worker.ts
+export declare class JobWorker extends JobScheduler {
+  private workerDir;
+  private jobRunners;
+  private active;
+  constructor(options: WorkerData);
+  private postMessage(msg: WorkerMessage): void;
+  private getJobRunner(type: string): Runnable<string>;
+  private completeJob<T extends string, D = undefined>(
+    job: Job<T>,
+    result: D
+  ): void;
+  private failJob<T extends string, E = undefined>(job: Job<T>, error: E): void;
+  private async getJob(): Promise<void>;
+  private async runJob(jobKey: string): Promise<void>;
 }
