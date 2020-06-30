@@ -132,7 +132,7 @@ export interface Middleware<
 }
 
 export interface MiddlewareCreator<
-  Options extends Record<string, unknown> = undefined,
+  Options = undefined,
   Response extends HttpResponse = HttpResponse,
   Request extends HttpRequest = HttpRequest
 > {

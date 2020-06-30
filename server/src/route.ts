@@ -136,7 +136,7 @@ export default function route(
 ) {
   return (pattern: string) => {
     const [url, useParser] = routeUrl(pattern);
-    if (useParser) middlewares.push(Parser(url));
+    if (useParser) middlewares.push(Parser(pattern));
     const routeMiddleware = applyMiddleware(middlewares, context);
     const used: Partial<Record<Methods | "any", boolean>> = {};
     const methods: Route = {

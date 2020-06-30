@@ -78,8 +78,8 @@ export interface HttpRequest<Data = undefined> {
   readonly remoteAddress: string;
   getHeader(name: string): string;
   getHeaders(): Record<string, string>;
-  arrayBuffer(valid: boolean): Promise<ArrayBuffer>;
-  text(valid: boolean): Promise<string>;
+  arrayBuffer(valid?: boolean): Promise<ArrayBuffer>;
+  text(valid?: boolean): Promise<string>;
   json(): Promise<Data>;
 }
 
