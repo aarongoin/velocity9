@@ -161,19 +161,20 @@ export interface AppContext extends Record<string, unknown> {
 export interface Context extends Record<string, unknown> {
   db?: Record<string, unknown>;
 }
-export type AttachmentResult<PostContext extends AppContext = {}> =
+export type AttachmentResult<PostContext extends AppContext> =
   | undefined
   | null
   | ((context: PostContext) => unknown);
 export type Attachment<
-  PreContext extends AppContext = {},
-  PostContext extends PreContext = PreContext
+  PreContext extends AppContext,
+  PostContext extends PreContext
 > = (
   context: PreContext
 ) => AttachmentResult<PostContext> | Promise<AttachmentResult<PostContext>>;
 
 export interface AppInterface {
-  attach(attachment: Context | Attachment): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  attach(attachment: Context | Attachment<any, any>): void;
   use(middleware: Middleware): AppInterface;
   route(pattern: string): Route;
   stop(): void;
@@ -196,7 +197,8 @@ export declare class App implements AppInterface {
   private attachments;
   private middlewares;
   constructor({ ssl }?: Partial<AppOptions>);
-  attach(attachment: Context | Attachment): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  attach(attachment: Context | Attachment<any, any>): void;
   stop(): void;
   use(middleware: Middleware): App;
   route(pattern: string): Route;
