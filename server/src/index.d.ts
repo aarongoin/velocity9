@@ -14,7 +14,8 @@ export type Methods =
   | "put"
   | "delete"
   | "head"
-  | "trace";
+  | "trace"
+  | "options";
 
 export type StatusCode =
   | 100
@@ -147,6 +148,7 @@ export interface Route {
   del(handler: Handler): Route;
   head(handler: Handler): Route;
   trace(handler: Handler): Route;
+  options(hander: Handler): Route;
   any(handler: Handler): void;
 }
 

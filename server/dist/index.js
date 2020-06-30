@@ -634,7 +634,7 @@ function route(app, context, middlewares) {
     return (pattern) => {
         const [url, useParser] = routeUrl(pattern);
         if (useParser)
-            middlewares.push(Parser(url));
+            middlewares.push(Parser(pattern));
         const routeMiddleware = applyMiddleware(middlewares, context);
         const used = {};
         const methods = {
@@ -689,6 +689,15 @@ function route(app, context, middlewares) {
                     used.head = true;
                 }
                 app.head(url, routeMiddleware(handler));
+                return methods;
+            },
+            options: (handler) => {
+                if (process.env.NODE_ENV === "development") {
+                    if (used.options)
+                        throw new Error(`Duplicate 'options' method for route: ${url}`);
+                    used.options = true;
+                }
+                app.options(url, routeMiddleware(handler));
                 return methods;
             },
             trace: (handler) => {

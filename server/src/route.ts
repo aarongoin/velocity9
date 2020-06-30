@@ -193,6 +193,15 @@ export default function route(
         app.head(url, routeMiddleware(handler));
         return methods;
       },
+      options: (handler: Handler) => {
+        if (process.env.NODE_ENV === "development") {
+          if (used.options)
+            throw new Error(`Duplicate 'options' method for route: ${url}`);
+          used.options = true;
+        }
+        app.options(url, routeMiddleware(handler));
+        return methods;
+      },
       trace: (handler: Handler) => {
         if (process.env.NODE_ENV === "development") {
           if (used.trace)

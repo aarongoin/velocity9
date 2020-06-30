@@ -14,7 +14,8 @@ export type Methods =
   | "put"
   | "delete"
   | "head"
-  | "trace";
+  | "trace"
+  | "options";
 
 export type StatusCode =
   | 100
@@ -78,8 +79,8 @@ export interface HttpRequest<Data = undefined> {
   readonly remoteAddress: string;
   getHeader(name: string): string;
   getHeaders(): Record<string, string>;
-  arrayBuffer(valid: boolean): Promise<ArrayBuffer>;
-  text(valid: boolean): Promise<string>;
+  arrayBuffer(valid?: boolean): Promise<ArrayBuffer>;
+  text(valid?: boolean): Promise<string>;
   json(): Promise<Data>;
 }
 
@@ -147,6 +148,7 @@ export interface Route {
   del(handler: Handler): Route;
   head(handler: Handler): Route;
   trace(handler: Handler): Route;
+  options(hander: Handler): Route;
   any(handler: Handler): void;
 }
 
