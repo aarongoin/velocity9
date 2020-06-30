@@ -161,12 +161,14 @@ export interface AppContext extends Record<string, unknown> {
 export interface Context extends Record<string, unknown> {
   db?: Record<string, unknown>;
 }
+export type AttachmentResult<PostContext extends PreContext = PreContext> =
+  | undefined
+  | null
+  | ((context: PostContext) => unknown);
 export type Attachment<
   PreContext extends AppContext = {},
   PostContext extends PreContext = PreContext
-> = (
-  context: PreContext
-) => undefined | null | ((context: PostContext) => unknown);
+> = (context: PreContext) => AttachmentResult | Promise<AttachmentResult>;
 
 export interface AppInterface {
   attach(attachment: Context | Attachment): void;

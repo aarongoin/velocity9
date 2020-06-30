@@ -723,6 +723,7 @@ function catchAll({ res, req }) {
         case "post":
         case "patch":
         case "delete":
+        case "options":
         case "trace":
         case "head":
             return res.sendStatus(statusCode.NotFound);
@@ -770,20 +771,26 @@ class App {
         return route(this.core, this.context, this.middlewares)(pattern);
     }
     start(host, port) {
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             this.route("/*").any(catchAll);
             this.core.listen(host, port, (socket) => {
                 if (!socket) {
-                    log.error("Failed to listen to port " + port);
+                    log.error(`Failed to listen to port ${port}`);
                     this.stop();
                 }
                 else {
                     this.listenSocket = socket;
-                    this.attachments = this.attachments
-                        .map(v => v(this.context))
-                        .filter(Boolean);
+                    Promise.all(this.attachments.map(v => v(this.context)))
+                        .then(res => {
+                        this.attachments = res.filter(Boolean);
+                        resolve(socket);
+                    })
+                        .catch((err) => {
+                        log.error(`Error adding an attachment to app: ${err.message}`);
+                        this.stop();
+                        reject(err);
+                    });
                 }
-                return resolve(socket);
             });
         });
     }

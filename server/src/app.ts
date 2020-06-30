@@ -20,6 +20,7 @@ function catchAll({ res, req }: RouteContext) {
     case "post":
     case "patch":
     case "delete":
+    case "options":
     case "trace":
     case "head":
       return res.sendStatus(statusCode.NotFound);
@@ -71,19 +72,25 @@ export class App implements AppInterface {
   }
 
   start(host: string, port: number): Promise<uws.us_listen_socket> {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       this.route("/*").any(catchAll);
       this.core.listen(host, port, (socket: uws.us_listen_socket) => {
         if (!socket) {
-          log.error("Failed to listen to port " + port);
+          log.error(`Failed to listen to port ${port}`);
           this.stop();
         } else {
           this.listenSocket = socket;
-          this.attachments = this.attachments
-            .map(v => v(this.context))
-            .filter(Boolean) as Attachment[];
+          Promise.all(this.attachments.map(v => v(this.context)))
+            .then(res => {
+              this.attachments = res.filter(Boolean) as Attachment[];
+              resolve(socket);
+            })
+            .catch((err: Error) => {
+              log.error(`Error adding an attachment to app: ${err.message}`);
+              this.stop();
+              reject(err);
+            });
         }
-        return resolve(socket);
       });
     });
   }
