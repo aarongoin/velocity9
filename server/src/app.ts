@@ -33,7 +33,8 @@ export class App implements AppInterface {
   private core: uws.TemplatedApp;
   private listenSocket: uws.us_listen_socket | null = null;
   private context: AppContext = {};
-  private attachments: Array<Attachment> = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private attachments: Array<Attachment<any, any>> = [];
   private middlewares: Array<Middleware> = [];
 
   constructor({ ssl }: Partial<AppOptions> = {}) {
@@ -42,7 +43,8 @@ export class App implements AppInterface {
     process.once("SIGTERM", () => this.stop());
   }
 
-  attach(attachment: Context | Attachment): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  attach(attachment: Context | Attachment<any, any>): void {
     if (typeof attachment !== "function") {
       Object.entries(attachment).forEach(([k, v]) => {
         if (k === "db") {
@@ -51,7 +53,8 @@ export class App implements AppInterface {
           this.context.db = { ...this.context.db, ...v };
         } else this.context[k] = v;
       });
-    } else this.attachments.push(attachment as Attachment);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } else this.attachments.push(attachment as Attachment<any, any>);
   }
 
   stop(): void {
@@ -82,7 +85,8 @@ export class App implements AppInterface {
           this.listenSocket = socket;
           Promise.all(this.attachments.map(v => v(this.context)))
             .then(res => {
-              this.attachments = res.filter(Boolean) as Attachment[];
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              this.attachments = res.filter(Boolean) as Attachment<any, any>[];
               resolve(socket);
             })
             .catch((err: Error) => {
