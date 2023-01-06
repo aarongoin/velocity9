@@ -38,7 +38,7 @@
     "@velocity9/workers": "^0.1.7",
     "eslint": "^7.0.0",
     "eslint-config-prettier": "^6.11.0",
-    "jest": "^23.6.0",
+    "jest": "^29.3.1",
     "lint-staged": "^8.1.0",
     "prettier": "^1.19.1",
     "rollup": "^2.10.0",
